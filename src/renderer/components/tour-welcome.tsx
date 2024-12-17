@@ -17,8 +17,6 @@ interface WelcomeTourState {
 /**
  * This is our "Welcome to Electron Fiddle" Tour. It includes both an intro to
  * the app and a short intro to Electron.
- *
- * @returns {Set<TourScriptStep>}
  */
 export function getWelcomeTour(): Set<TourScriptStep> {
   return new Set([
@@ -175,10 +173,6 @@ export function getWelcomeTour(): Set<TourScriptStep> {
 
 /**
  * The "Welcome to Electron Fiddle" Tour.
- *
- * @export
- * @class WelcomeTour
- * @extends {React.Component<WelcomeTourProps, WelcomeTourState>}
  */
 export const WelcomeTour = observer(
   class WelcomeTour extends React.Component<
@@ -238,22 +232,27 @@ export const WelcomeTour = observer(
       if (!isTourStarted) {
         return (
           <Dialog key="welcome-tour-dialog" isOpen={true}>
-            <div className={Classes.DIALOG_HEADER}>
-              <h4 className={Classes.HEADING}>🙋‍ Hey There!</h4>
-            </div>
-            <div className={Classes.DIALOG_BODY}>
-              <p>
-                Welcome to Electron Fiddle! If you&apos;re new to the app,
-                we&apos;d like to give you a brief tour of its features.
-              </p>
-              <p>
-                We won&apos;t show this dialog again, but you can always find
-                the tour in the Help menu.
-              </p>
-            </div>
-            <div className={Classes.DIALOG_FOOTER}>
-              <div className={Classes.DIALOG_FOOTER_ACTIONS}>
-                {this.buttons}
+            <div
+              data-testid="welcome-tour-dialog"
+              style={{ display: 'contents' }}
+            >
+              <div className={Classes.DIALOG_HEADER}>
+                <h4 className={Classes.HEADING}>🙋‍ Hey There!</h4>
+              </div>
+              <div className={Classes.DIALOG_BODY}>
+                <p>
+                  Welcome to Electron Fiddle! If you&apos;re new to the app,
+                  we&apos;d like to give you a brief tour of its features.
+                </p>
+                <p>
+                  We won&apos;t show this dialog again, but you can always find
+                  the tour in the Help menu.
+                </p>
+              </div>
+              <div className={Classes.DIALOG_FOOTER}>
+                <div className={Classes.DIALOG_FOOTER_ACTIONS}>
+                  {this.buttons}
+                </div>
               </div>
             </div>
           </Dialog>

@@ -3,7 +3,14 @@ import * as path from 'node:path';
 import * as fs from 'fs-extra';
 import { mocked } from 'jest-mock';
 
-import { EditorId, EditorValues, MAIN_JS } from '../../../src/interfaces';
+import {
+  EditorId,
+  EditorValues,
+  MAIN_CJS,
+  MAIN_JS,
+  MAIN_MJS,
+  PACKAGE_NAME,
+} from '../../../src/interfaces';
 import { readFiddle } from '../../../src/main/utils/read-fiddle';
 import {
   ensureRequiredFiles,
@@ -41,14 +48,46 @@ describe('read-fiddle', () => {
     expect(fiddle).toStrictEqual({ [MAIN_JS]: getEmptyContent(MAIN_JS) });
   });
 
+  it('does not inject main.js if main.cjs or main.mjs present', async () => {
+    for (const entryPoint of [MAIN_CJS, MAIN_MJS]) {
+      const mockValues = {
+        [entryPoint]: getEmptyContent(entryPoint),
+      };
+      setupFSMocks(mockValues);
+
+      const fiddle = await readFiddle(folder);
+
+      expect(console.warn).not.toHaveBeenCalled();
+      expect(fiddle).toStrictEqual({
+        [entryPoint]: getEmptyContent(entryPoint),
+      });
+    }
+  });
+
   it('reads supported files', async () => {
     const content = 'hello';
     const mockValues = { [MAIN_JS]: content };
     setupFSMocks(mockValues);
 
     const fiddle = await readFiddle(folder);
-
     expect(fiddle).toStrictEqual(mockValues);
+  });
+
+  it(`reads JSON files only if they are not ${PACKAGE_NAME}`, async () => {
+    const content = 'hello im main';
+    const mockValues = {
+      [MAIN_JS]: content,
+      'file.json': '{ "hello": "world" }',
+      [PACKAGE_NAME]: '{}',
+    };
+
+    setupFSMocks(mockValues);
+
+    const fiddle = await readFiddle(folder);
+    expect(fiddle).toStrictEqual({
+      [MAIN_JS]: content,
+      'file.json': '{ "hello": "world" }',
+    });
   });
 
   it('skips unsupported files', async () => {

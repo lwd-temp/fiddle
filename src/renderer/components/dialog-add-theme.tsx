@@ -4,7 +4,7 @@ import { Button, Dialog, FileInput } from '@blueprintjs/core';
 import { observer } from 'mobx-react';
 import * as MonacoType from 'monaco-editor';
 
-import { FiddleTheme, defaultDark } from '../../themes-defaults';
+import { FiddleTheme } from '../../themes-defaults';
 import { AppState } from '../state';
 import { getTheme } from '../themes';
 
@@ -18,9 +18,6 @@ interface AddThemeDialogState {
 
 /**
  * The "add monaco theme" dialog allows users to add custom editor themes.
- *
- * @class AddThemeDialog
- * @extends {React.Component<AddThemeDialogProps, AddThemeDialogState>}
  */
 export const AddThemeDialog = observer(
   class AddThemeDialog extends React.Component<
@@ -40,8 +37,6 @@ export const AddThemeDialog = observer(
 
     /**
      * Handles a change of the file input.
-     *
-     * @param {React.ChangeEvent<HTMLInputElement>} event
      */
     public async onChangeFile(event: React.FormEvent<HTMLInputElement>) {
       const { files } = event.target as HTMLInputElement;
@@ -52,16 +47,12 @@ export const AddThemeDialog = observer(
 
     /**
      * Handles the submission of the dialog.
-     *
-     * @returns {Promise<void>}
      */
     public async onSubmit(): Promise<void> {
       const { file } = this.state;
       const { appState } = this.props;
 
-      const defaultTheme = !!appState.theme
-        ? await getTheme(appState.theme)
-        : defaultDark;
+      const defaultTheme = await getTheme(appState, appState.theme);
 
       if (!file) return;
 

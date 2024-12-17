@@ -24,10 +24,17 @@ export function mainIsReady() {
   mainIsReadyResolver();
 }
 
+export function safelyOpenWebURL(url: string) {
+  try {
+    const { protocol } = new URL(url);
+    if (['http:', 'https:'].includes(protocol)) {
+      shell.openExternal(url);
+    }
+  } catch {}
+}
+
 /**
  * Gets default options for the main window
- *
- * @returns {Electron.BrowserWindowConstructorOptions}
  */
 export function getMainWindowOptions(): Electron.BrowserWindowConstructorOptions {
   const HEADER_COMMANDS_HEIGHT = 50;
@@ -57,9 +64,6 @@ export function getMainWindowOptions(): Electron.BrowserWindowConstructorOptions
 
 /**
  * Creates a new main window.
- *
- * @export
- * @returns {Electron.BrowserWindow}
  */
 export function createMainWindow(): Electron.BrowserWindow {
   console.log(`Creating main window`);
@@ -92,13 +96,13 @@ export function createMainWindow(): Electron.BrowserWindow {
   });
 
   browserWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url);
+    safelyOpenWebURL(details.url);
     return { action: 'deny' };
   });
 
   browserWindow.webContents.on('will-navigate', (event, url) => {
     event.preventDefault();
-    shell.openExternal(url);
+    safelyOpenWebURL(url);
   });
 
   ipcMainManager.on(IpcEvents.RELOAD_WINDOW, () => {
@@ -112,8 +116,6 @@ export function createMainWindow(): Electron.BrowserWindow {
 
 /**
  * Gets or creates the main window, returning it in both cases.
- *
- * @returns {Promise<Electron.BrowserWindow>}
  */
 export async function getOrCreateMainWindow(): Promise<Electron.BrowserWindow> {
   await mainIsReadyPromise;

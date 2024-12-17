@@ -1,14 +1,19 @@
+import semver from 'semver';
+
 import { Bisector } from './bisect';
 import { AppState } from './state';
 import { maybePlural } from './utils/plural-maybe';
 import {
   FileTransformOperation,
   InstallState,
+  MAIN_MJS,
   PMOperationOptions,
   PackageJsonOptions,
   RunResult,
   RunnableVersion,
 } from '../interfaces';
+
+const parseEnvString = require('parse-env-string');
 
 export enum ForgeCommands {
   PACKAGE = 'package',
@@ -49,9 +54,7 @@ export class Runner {
   /**
    * Bisect the current fiddle across the specified versions.
    *
-   * @param {Array<RunnableVersion>} versions - versions to bisect
-   * @returns {Promise<RunResult>}
-   * @memberof Runner
+   * @param versions - versions to bisect
    */
   public autobisect(versions: Array<RunnableVersion>): Promise<RunResult> {
     const { appState } = this;
@@ -63,9 +66,7 @@ export class Runner {
   /**
    * Bisect the current fiddle across the specified versions.
    *
-   * @param {Array<RunnableVersion>} versions - versions to bisect
-   * @returns {Promise<RunResult>}
-   * @memberof Runner
+   * @param versions - versions to bisect
    */
   public async autobisectImpl(
     versions: Array<RunnableVersion>,
@@ -137,9 +138,6 @@ export class Runner {
 
   /**
    * Actually run the fiddle.
-   *
-   * @returns {Promise<RunResult>}
-   * @memberof Runner
    */
   public async run(): Promise<RunResult> {
     const options = { includeDependencies: false, includeElectron: false };
@@ -161,6 +159,20 @@ export class Runner {
       const fallback = appState.findUsableVersion();
       if (fallback) await appState.setVersion(fallback.version);
       return RunResult.INVALID;
+    }
+
+    if (
+      semver.lt(ver.version, '28.0.0') &&
+      !ver.version.startsWith('28.0.0-nightly')
+    ) {
+      const entryPoint = appState.editorMosaic.mainEntryPointFile();
+
+      if (entryPoint === MAIN_MJS) {
+        appState.showErrorDialog(
+          'ESM main entry points are only supported starting in Electron 28',
+        );
+        return RunResult.INVALID;
+      }
     }
 
     if (appState.isClearingConsoleOnRun) {
@@ -213,8 +225,6 @@ export class Runner {
 
   /**
    * Stop a currently running Electron fiddle.
-   *
-   * @memberof Runner
    */
   public stop(): void {
     window.ElectronFiddle.stopFiddle();
@@ -222,10 +232,6 @@ export class Runner {
 
   /**
    * Uses electron-forge to either package or make the current fiddle
-   *
-   * @param {ForgeCommands} operation
-   * @returns {Promise<boolean>}
-   * @memberof Runner
    */
   public async performForgeOperation(
     operation: ForgeCommands,
@@ -281,10 +287,6 @@ export class Runner {
 
   /**
    * Installs the specified modules
-   *
-   * @param {PMOperationOptions} pmOptions
-   * @returns {Promise<void>}
-   * @memberof Runner
    */
   public async installModules(pmOptions: PMOperationOptions): Promise<void> {
     const modules = Array.from(this.appState.modules.entries()).map(
@@ -330,14 +332,26 @@ export class Runner {
     }
   }
 
-  private buildChildEnvVars(): { [x: string]: string | undefined } {
+  public buildChildEnvVars(): { [x: string]: string | undefined } {
     const { environmentVariables } = this.appState;
 
     const env: Record<string, string> = {};
 
-    for (const v of environmentVariables) {
-      const [key, value] = v.split('=');
-      env[key] = value;
+    for (const envVar of environmentVariables) {
+      const errMsg = `Could not parse environment variable: ${envVar}`;
+
+      try {
+        const parsed: Record<string, string> | null = parseEnvString(envVar);
+        if (!parsed || !Object.keys(parsed).length) {
+          this.appState.showErrorDialog(errMsg);
+          continue;
+        }
+
+        const [key, value] = Object.entries(parsed)[0];
+        env[key] = value;
+      } catch (e) {
+        this.appState.showErrorDialog(errMsg);
+      }
     }
 
     return env;
@@ -412,11 +426,6 @@ export class Runner {
 
   /**
    * Save files to temp, logging to the Fiddle terminal while doing so
-   *
-   * @param {PackageJsonOptions} options
-   * @param {Array<FileTransformOperation>} [transforms]
-   * @returns {(Promise<string | null>)}
-   * @memberof Runner
    */
   public async saveToTemp(
     options: PackageJsonOptions,
@@ -439,11 +448,7 @@ export class Runner {
 
   /**
    * Installs modules in a given directory (we're basically
-   * just running "{packageManager} install")
-   *
-   * @param {PMOperationOptions} options
-   * @returns {Promise<boolean>}
-   * @memberof Runner
+   * just running "\{packageManager\} install")
    */
   public async packageInstall(options: PMOperationOptions): Promise<boolean> {
     const pm = options.packageManager;

@@ -6,10 +6,10 @@ import {
   IToastProps,
   Menu,
   MenuItem,
-  Popover,
   Position,
   Toaster,
 } from '@blueprintjs/core';
+import { Popover2 } from '@blueprintjs/popover2';
 import { when } from 'mobx';
 import { observer } from 'mobx-react';
 
@@ -36,10 +36,6 @@ interface IGistActionButtonState {
 
 /**
  * The "publish" button takes care of logging you in.
- *
- * @export
- * @class GistActionButton
- * @extends {React.Component<GistActionButtonProps, GistActionButtonState>}
  */
 export const GistActionButton = observer(
   class GistActionButton extends React.Component<
@@ -85,9 +81,6 @@ export const GistActionButton = observer(
      * If we're showing the authentication dialog, we wait for it
      * to be closed again (or a GitHub token to show up) before
      * we publish
-     *
-     * @returns {Promise<void>}
-     * @memberof GistActionButton
      */
     public async handleClick(): Promise<void> {
       const { appState } = this.props;
@@ -306,8 +299,6 @@ export const GistActionButton = observer(
 
     /**
      * Publish fiddles as private.
-     *
-     * @memberof GistActionButton
      */
     public setPrivate() {
       this.setPrivacy(false);
@@ -315,8 +306,6 @@ export const GistActionButton = observer(
 
     /**
      * Publish fiddles as public.
-     *
-     * @memberof GistActionButton
      */
     public setPublic() {
       this.setPrivacy(true);
@@ -361,6 +350,7 @@ export const GistActionButton = observer(
               {this.renderPrivacyMenu()}
               <Button
                 id="button-action"
+                data-testid="button-action"
                 onClick={this.handleClick}
                 loading={isPerformingAction}
                 icon={getActionIcon()}
@@ -406,9 +396,9 @@ export const GistActionButton = observer(
       );
 
       return (
-        <Popover content={menu} position={Position.BOTTOM}>
+        <Popover2 content={menu} position={Position.BOTTOM}>
           <Button icon="wrench" />
-        </Popover>
+        </Popover2>
       );
     };
 
@@ -439,9 +429,9 @@ export const GistActionButton = observer(
       );
 
       return (
-        <Popover content={privacyMenu} position={Position.BOTTOM}>
+        <Popover2 content={privacyMenu} position={Position.BOTTOM}>
           <Button icon={privacyIcon} />
-        </Popover>
+        </Popover2>
       );
     };
 
@@ -462,7 +452,7 @@ export const GistActionButton = observer(
       return Object.fromEntries(
         Object.entries(values)
           .filter(([, content]) => Boolean(content))
-          .map(([id, content]) => [id, { content }]),
+          .map(([id, content]) => [id, { filename: id, content }]),
       );
     };
   },

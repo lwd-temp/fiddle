@@ -1,12 +1,13 @@
 import { autorun, reaction, when } from 'mobx';
 
+import { PREFERS_DARK_MEDIA_QUERY } from './constants';
 import { ElectronTypes } from './electron-types';
 import { FileManager } from './file-manager';
 import { RemoteLoader } from './remote-loader';
 import { Runner } from './runner';
 import { AppState } from './state';
 import { TaskRunner } from './task-runner';
-import { activateTheme, getTheme } from './themes';
+import { activateTheme, getCurrentTheme, getTheme } from './themes';
 import { getPackageJson } from './utils/get-package';
 import { getElectronVersions } from './versions';
 import {
@@ -24,8 +25,6 @@ import '../less/root.less';
 /**
  * The top-level class controlling the whole app. This is *not* a React component,
  * but it does eventually render all components.
- *
- * @class App
  */
 export class App {
   public state = new AppState(getElectronVersions());
@@ -82,8 +81,6 @@ export class App {
 
   /**
    * Retrieves the contents of all editor panes.
-   *
-   * @returns {EditorValues}
    */
   public async getEditorValues(
     options?: PackageJsonOptions,
@@ -105,7 +102,11 @@ export class App {
    * render process.
    */
   public async setup(): Promise<void | Element | React.Component> {
-    await this.loadTheme(this.state.theme || '');
+    if (this.state.isUsingSystemTheme) {
+      await this.loadTheme(getCurrentTheme().file);
+    } else {
+      await this.loadTheme(this.state.theme);
+    }
 
     const [
       { default: React },
@@ -127,9 +128,9 @@ export class App {
 
     const app = (
       <div className="container">
-        <Dialogs appState={this.state} />
         <Header appState={this.state} />
         <OutputEditorsWrapper appState={this.state} />
+        <Dialogs appState={this.state} />
       </div>
     );
 
@@ -162,47 +163,33 @@ export class App {
   }
 
   public async setupThemeListeners() {
-    const setSystemTheme = (prefersDark: boolean) => {
-      if (prefersDark) {
-        this.state.setTheme(defaultDark.file);
-      } else {
-        this.state.setTheme(defaultLight.file);
-      }
-    };
-
     // match theme to system when box is ticked
     reaction(
       () => this.state.isUsingSystemTheme,
       () => {
         if (this.state.isUsingSystemTheme) {
           window.ElectronFiddle.setNativeTheme('system');
-
-          if (!!window.matchMedia) {
-            const { matches } = window.matchMedia(
-              '(prefers-color-scheme: dark)',
-            );
-            setSystemTheme(matches);
-          }
+          this.loadTheme(getCurrentTheme().file);
+        } else {
+          this.loadTheme(this.state.theme);
         }
       },
     );
 
     // change theme when system theme changes
-    if (!!window.matchMedia) {
-      window
-        .matchMedia('(prefers-color-scheme: dark)')
-        .addEventListener('change', ({ matches }) => {
-          if (this.state.isUsingSystemTheme) {
-            setSystemTheme(matches);
-          }
-        });
-    }
+    window
+      .matchMedia(PREFERS_DARK_MEDIA_QUERY)
+      .addEventListener('change', ({ matches: prefersDark }) => {
+        if (this.state.isUsingSystemTheme) {
+          this.loadTheme((prefersDark ? defaultDark : defaultLight).file);
+        }
+      });
   }
 
   /**
    * Opens a fiddle from the specified location.
    *
-   * @param {SetFiddleOptions} fiddle The fiddle to open
+   * @param fiddle - The fiddle to open
    */
   public async openFiddle(fiddle: SetFiddleOptions) {
     const { localFiddle, gistId } = fiddle;
@@ -218,14 +205,11 @@ export class App {
 
   /**
    * Loads theme CSS into the HTML document.
-   *
-   * @param {string} name
-   * @returns {Promise<void>}
    */
-  public async loadTheme(name: string): Promise<void> {
+  public async loadTheme(name: string | null): Promise<void> {
     const tag: HTMLStyleElement | null =
       document.querySelector('style#fiddle-theme');
-    const theme = await getTheme(name);
+    const theme = await getTheme(this.state, name);
     activateTheme(theme);
 
     if (tag && theme.css) {

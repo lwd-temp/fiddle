@@ -8,9 +8,7 @@ import { ensureRequiredFiles, isSupportedFile } from '../../utils/editor-utils';
 /**
  * Reads a Fiddle from a directory.
  *
- * @param {string} folder
- * @param {boolean} includePackageJson
- * @returns {Promise<EditorValues>} the loaded Fiddle
+ * @returns the loaded Fiddle
  */
 export async function readFiddle(
   folder: string,
@@ -22,9 +20,17 @@ export async function readFiddle(
     // TODO(dsanders11): Remove options once issue fixed:
     // https://github.com/isaacs/node-graceful-fs/issues/223
     const files = await fs.readdir(folder, { encoding: 'utf8' });
-    const names = files.filter(
-      (f) => isSupportedFile(f) || (includePackageJson && f === PACKAGE_NAME),
-    );
+    const names = files.filter((f) => {
+      if (f === 'package-lock.json') {
+        return false;
+      }
+
+      if (f === PACKAGE_NAME) {
+        return includePackageJson;
+      }
+
+      return isSupportedFile(f);
+    });
 
     const values = await Promise.allSettled(
       names.map((name) => fs.readFile(path.join(folder, name), 'utf8')),

@@ -126,14 +126,17 @@ export class RemoteLoader {
 
       for (const [id, data] of Object.entries(gist.data.files)) {
         const content = data.truncated
-          ? await fetch(data.raw_url).then((r) => r.text())
-          : data.content;
+          ? await fetch(data.raw_url!).then((r) => r.text())
+          : data.content!;
+
         if (id === PACKAGE_NAME) {
-          const { dependencies, devDependencies } = JSON.parse(content);
-          const deps: Record<string, string> = {
-            ...dependencies,
-            ...devDependencies,
-          };
+          const deps: Record<string, string> = {};
+          try {
+            const { dependencies, devDependencies } = JSON.parse(content);
+            Object.assign(deps, dependencies, devDependencies);
+          } catch (e) {
+            throw new Error('Invalid JSON found in package.json');
+          }
 
           // If the gist specifies an Electron version, we want to tell Fiddle to run
           // it with that version by default.
@@ -177,6 +180,10 @@ export class RemoteLoader {
           this.appState.modules = new Map(Object.entries(deps));
         }
 
+        // JSON files are supported, but we don't want to add package.json
+        // or the lockfile to the visible editor array.
+        if ([PACKAGE_NAME, 'package-lock.json'].includes(id)) continue;
+
         if (!isSupportedFile(id)) continue;
 
         if (isKnownFile(id) || (await this.confirmAddFile(id))) {
@@ -188,7 +195,7 @@ export class RemoteLoader {
       // contain any supported files. Throw an error to let the user know.
       if (Object.keys(values).length === 0) {
         throw new Error(
-          'This Gist did not contain any supported files. Supported files must have one of the following extensions: .js, .css, or .html.',
+          'This Gist did not contain any supported files. Supported files must have one of the following extensions: .cjs, .js, .mjs, .css, or .html.',
         );
       }
 
@@ -244,7 +251,7 @@ export class RemoteLoader {
   /**
    * Verifies from the user that we should be loading this fiddle.
    *
-   * @param {string} what What are we loading from (gist, example, etc.)
+   * @param what - What are we loading from (gist, example, etc.)
    */
   public verifyRemoteLoad(what: string): Promise<boolean> {
     return this.appState.showConfirmDialog({
@@ -264,10 +271,6 @@ export class RemoteLoader {
 
   /**
    * Loading a fiddle from GitHub succeeded, let's move on.
-   *
-   * @param {EditorValues} values
-   * @param {string} gistId
-   * @returns {Promise<boolean>}
    */
   private async handleLoadingSuccess(
     values: EditorValues,
@@ -280,9 +283,6 @@ export class RemoteLoader {
   /**
    * Loading a fiddle from GitHub failed - this method handles this case
    * gracefully.
-   *
-   * @param {Error} error
-   * @returns {boolean}
    */
   private handleLoadingFailed(error: Error): false {
     const failedLabel = `Loading the fiddle failed: ${error.message}`;

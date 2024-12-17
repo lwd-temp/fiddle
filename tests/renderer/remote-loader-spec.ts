@@ -83,10 +83,33 @@ describe('RemoteLoader', () => {
       expect(app.replaceFiddle).toBeCalledWith(editorValues, { gistId });
     });
 
+    it('handles bad JSON in package.json', async () => {
+      const gistId = 'badjsontestid';
+      const badPj =
+        '{"main":"main.js","devDependencies":{"electron":"17.0.0",}}';
+
+      store.gistId = gistId;
+      mockGistFiles[PACKAGE_NAME] = { content: badPj };
+      mockRepos.push({
+        name: PACKAGE_NAME,
+        download_url: `https://${PACKAGE_NAME}`,
+      });
+
+      mocked(getOctokit).mockResolvedValue({
+        gists: mockGetGists,
+      } as unknown as Octokit);
+
+      const result = await instance.fetchGistAndLoad(gistId);
+      expect(result).toBe(false);
+      expect(store.showErrorDialog).toHaveBeenCalledWith(
+        expect.stringMatching(/Invalid JSON found in package.json/i),
+      );
+    });
+
     it('handles gist fiddle devDependencies', async () => {
       const gistId = 'pjsontestid';
       const pj = {
-        main: 'main.js',
+        main: MAIN_JS,
         devDependencies: {
           electron: '17.0.0',
         },
@@ -132,7 +155,7 @@ describe('RemoteLoader', () => {
       expect(result).toBe(false);
       expect(store.showErrorDialog).toHaveBeenCalledWith(
         expect.stringMatching(
-          /This Gist did not contain any supported files. Supported files must have one of the following extensions: .js, .css, or .html/i,
+          /This Gist did not contain any supported files. Supported files must have one of the following extensions: .cjs, .js, .mjs, .css, or .html/i,
         ),
       );
     });
@@ -140,7 +163,7 @@ describe('RemoteLoader', () => {
     it('sets the Electron version from package.json', async () => {
       const gistId = 'pjsontestid';
       const pj = {
-        main: 'main.js',
+        main: MAIN_JS,
         devDependencies: {
           electron: '17.0.0',
         },
@@ -194,7 +217,7 @@ describe('RemoteLoader', () => {
     it('does not set an invalid Electron version from package.json', async () => {
       const gistId = 'pjsontestid';
       const pj = {
-        main: 'main.js',
+        main: MAIN_JS,
         devDependencies: {
           electron: '99999.0.0',
         },
@@ -226,7 +249,7 @@ describe('RemoteLoader', () => {
     it('handles extra gist fiddle dependencies', async () => {
       const gistId = 'pjsontestid';
       const pj = {
-        main: 'main.js',
+        main: MAIN_JS,
         dependencies: {
           'meaning-of-life': '*',
         },
@@ -256,10 +279,37 @@ describe('RemoteLoader', () => {
       expect(store.modules.has('electron')).toEqual(false);
     });
 
-    it('loads a fiddle with a new file', async () => {
+    it('loads a fiddle with a new JS file', async () => {
       // setup: adding a new supported file
       const filename = 'file.js';
       const content = '// hello!';
+      const gistId = 'customtestid';
+      expect(isKnownFile(filename)).toBe(false);
+      expect(isSupportedFile(filename)).toBe(true);
+
+      store.gistId = gistId;
+
+      editorValues[filename] = content;
+      mockGistFiles[filename] = { content };
+      mockRepos.push({
+        name: filename,
+        download_url: `https://${filename}`,
+      });
+
+      mocked(getOctokit).mockResolvedValue({
+        gists: mockGetGists,
+      } as unknown as Octokit);
+      instance.confirmAddFile = jest.fn().mockResolvedValue(true);
+
+      const result = await instance.fetchGistAndLoad(gistId);
+
+      expect(result).toBe(true);
+      expect(app.replaceFiddle).toBeCalledWith(editorValues, { gistId });
+    });
+
+    it('loads a fiddle with a new JSON file', async () => {
+      const filename = 'data.json';
+      const content = '{"test": "hello!"}';
       const gistId = 'customtestid';
       expect(isKnownFile(filename)).toBe(false);
       expect(isSupportedFile(filename)).toBe(true);

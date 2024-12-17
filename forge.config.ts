@@ -1,4 +1,3 @@
-import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
@@ -15,26 +14,6 @@ const { version } = packageJson;
 const iconDir = path.resolve(__dirname, 'assets', 'icons');
 const root = process.cwd();
 
-if (process.env['WINDOWS_CODESIGN_FILE']) {
-  const certPath = process.env['WINDOWS_CODESIGN_FILE'];
-
-  if (!fs.existsSync(certPath) && process.env['SIGN_OR_DIE']) {
-    throw new Error('Did not find Windows codesign file');
-  }
-}
-
-if (
-  process.env['SIGN_OR_DIE'] &&
-  !(
-    process.env['WINDOWS_CODESIGN_FILE'] &&
-    process.env['WINDOWS_CODESIGN_PASSWORD']
-  )
-) {
-  throw new Error(
-    'Did not find "WINDOWS_CODESIGN_{FILE|PASSWORD}" env variable(s)',
-  );
-}
-
 const commonLinuxConfig = {
   categories: ['Development', 'Utility'],
   icon: {
@@ -43,6 +22,8 @@ const commonLinuxConfig = {
   },
   mimeType: ['x-scheme-handler/electron-fiddle'],
 };
+
+const requirements = path.resolve(__dirname, 'tools/certs/requirements.txt');
 
 const config: ForgeConfig = {
   hooks: {
@@ -116,14 +97,16 @@ const config: ForgeConfig = {
       OriginalFilename: 'Electron Fiddle',
     },
     osxSign: {
-      identity: 'Developer ID Application: Felix Rieseberg (LT94ZKYDCJ)',
+      identity:
+        'Developer ID Application: OpenJS Foundation, Inc. (UY52UFTVTM)',
       optionsForFile: (filePath) =>
         ['(Plugin).app', '(GPU).app', '(Renderer).app'].some((helper) =>
           filePath.includes(helper),
         )
-          ? {}
+          ? { requirements }
           : {
               entitlements: 'static/entitlements.plist',
+              requirements,
             },
     },
   },
@@ -141,8 +124,7 @@ const config: ForgeConfig = {
         noMsi: true,
         setupExe: `electron-fiddle-${version}-win32-${arch}-setup.exe`,
         setupIcon: path.resolve(iconDir, 'fiddle.ico'),
-        certificateFile: process.env['WINDOWS_CODESIGN_FILE'],
-        certificatePassword: process.env['WINDOWS_CODESIGN_PASSWORD'],
+        signWithParams: `/sha1 ${process.env.CERT_FINGERPRINT} /tr http://timestamp.digicert.com /td SHA256 /fd SHA256`,
       }),
     },
     {
@@ -180,6 +162,7 @@ const config: ForgeConfig = {
         },
         draft: true,
         prerelease: false,
+        generateReleaseNotes: true,
       },
     },
   ],
@@ -190,8 +173,9 @@ function notarizeMaybe() {
     return;
   }
 
-  if (!process.env.CI) {
+  if (!process.env.CI && !process.env.FORCE_NOTARIZATION) {
     // Not in CI, skipping notarization
+    console.log('Not in CI, skipping notarization');
     return;
   }
 
@@ -203,10 +187,9 @@ function notarizeMaybe() {
   }
 
   config.packagerConfig!.osxNotarize = {
-    tool: 'notarytool',
     appleId: process.env.APPLE_ID,
     appleIdPassword: process.env.APPLE_ID_PASSWORD,
-    teamId: 'LT94ZKYDCJ',
+    teamId: 'UY52UFTVTM',
   };
 }
 

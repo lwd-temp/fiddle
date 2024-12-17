@@ -7,7 +7,6 @@ import * as namor from 'namor';
 import { ipcMainManager } from './ipc';
 import { IpcEvents } from '../ipc-events';
 import {
-  DefaultThemes,
   FiddleTheme,
   LoadedFiddleTheme,
   defaultDark,
@@ -19,17 +18,10 @@ export const THEMES_PATH = path.join(CONFIG_PATH, 'themes');
 
 /**
  * Read in a theme file.
- *
- * @export
- * @param {string} [name]
- * @returns {Promise<FiddleTheme | null>}
  */
 export async function readThemeFile(
-  name?: string,
+  name: string,
 ): Promise<LoadedFiddleTheme | null> {
-  if (!name || name === DefaultThemes.DARK) return defaultDark;
-  if (name === DefaultThemes.LIGHT) return defaultLight;
-
   const file = name.endsWith('.json') ? name : `${name}.json`;
   const themePath = path.join(THEMES_PATH, file);
 
@@ -48,10 +40,6 @@ export async function readThemeFile(
 
 /**
  * Create theme file and show in folder.
- *
- * @param {FiddleTheme} theme
- * @param {string} [name]
- * @returns {Promise<LoadedFiddleTheme>}
  */
 export async function createThemeFile(
   theme: FiddleTheme | LoadedFiddleTheme,
@@ -87,8 +75,6 @@ export async function createThemeFile(
 
 /**
  * Reads and then returns all available themes.
- *
- * @returns {Promise<Array<LoadedFiddleTheme>>}
  */
 export async function getAvailableThemes(): Promise<Array<LoadedFiddleTheme>> {
   const themes: Array<LoadedFiddleTheme> = [defaultDark, defaultLight];
@@ -127,7 +113,7 @@ export async function openThemeFolder() {
 export function setupThemes() {
   ipcMainManager.handle(
     IpcEvents.READ_THEME_FILE,
-    (_: IpcMainEvent, name?: string) => readThemeFile(name),
+    (_: IpcMainEvent, name: string) => readThemeFile(name),
   );
   ipcMainManager.handle(IpcEvents.GET_AVAILABLE_THEMES, (_: IpcMainEvent) =>
     getAvailableThemes(),
